@@ -8,8 +8,8 @@ import pypdfium2 as pdfium
 import pytesseract
 from PIL import Image
 
-st.title("📄 Universal PDF to Excel Converter")
-st.write("Supports digital text PDFs, scanned certificates, and handwritten study notes!")
+st.title("📄 Universal PDF to Excel Creator")
+st.write("Convert any document into an Excel spreadsheet effortlessly. Supports digital text PDFs, scanned certificates, and handwritten notes!")
 
 uploaded_file = st.file_uploader("Upload your PDF file", type=["pdf"])
 
@@ -20,8 +20,8 @@ if uploaded_file is not None:
 
     extracted_data = []
 
-    with st.spinner("Analyzing document (Digital & OCR Pipeline)..."):
-        # Method 1: Try extracting digital text first (Fast & perfect for digital PDFs)
+    with st.spinner("Processing document using Universal & OCR pipeline..."):
+        # Step 1: Try extracting digital text first (Fast & perfect for clean digital PDFs)
         with pdfplumber.open(tmp_path) as pdf:
             for page_idx, page in enumerate(pdf.pages):
                 text = page.extract_text()
@@ -31,32 +31,34 @@ if uploaded_file is not None:
                         extracted_data.append({
                             "Page": page_idx + 1,
                             "Line Number": line_idx + 1,
-                            "Content Type": "Digital Text",
+                            "Extraction Mode": "Digital Text",
                             "Extracted Content": line
                         })
 
-        # Method 2: Fallback to OCR if no digital text layer was found (Scans, Certificates, Handwritten notes)
+        # Step 2: Fallback to OCR if no digital text layer was found (Scans, Certificates, Handwritten Notes)
         if not extracted_data:
-            st.info("No digital text layer detected. Running advanced OCR for scanned/handwritten document...")
+            st.info("No digital text layer detected. Running advanced OCR pipeline for scanned/handwritten content...")
             
             pdf_file = pdfium.PdfDocument(tmp_path)
             for page_idx, page in enumerate(pdf_file):
-                # Render at high resolution for handwriting/certificates
+                # Render at high resolution (scale=3) so handwritten loops and fonts stay crisp
                 image = page.render(scale=3).to_pil()
                 
-                # Preprocess: convert to grayscale for high contrast against paper lines/background
-                gray_image = image.convert('L')
+                # Preprocess: Grayscale and thresholding to filter out notebook lines/background noise
+                gray = image.convert('L')
+                threshold = 170
+                processed_image = gray.point(lambda p: 255 if p > threshold else 0)
 
-                # Run OCR with layout analysis config optimized for unstructured text and notes
-                custom_config = r'--oem 3 --psm 6'
-                text = pytesseract.image_to_string(gray_image, config=custom_config)
+                # Run OCR with sparse text mode (--psm 11) to handle handwritten notes and flowcharts
+                custom_config = r'--oem 3 --psm 11'
+                text = pytesseract.image_to_string(processed_image, config=custom_config)
                 
                 lines = [line.strip() for line in text.split('\n') if line.strip()]
                 for line_idx, line in enumerate(lines):
                     extracted_data.append({
                         "Page": page_idx + 1,
                         "Line Number": line_idx + 1,
-                        "Content Type": "OCR (Scanned/Handwritten)",
+                        "Extraction Mode": "OCR (Scanned/Handwritten)",
                         "Extracted Content": line
                     })
 
@@ -75,13 +77,13 @@ if uploaded_file is not None:
         # Convert to Excel for download
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df_result.to_excel(writer, sheet_name="Extracted_Data", index=False)
+            df_result.to_excel(writer, sheet_name="Universal_Extracted", index=False)
         output.seek(0)
 
         st.download_button(
             label="📥 Download Clean Excel File",
             data=output,
-            file_name="universal_extracted.xlsx",
+            file_name="universal_pdf_extracted.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
     else:
