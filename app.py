@@ -28,8 +28,8 @@ if not api_keys:
 
 key_pool = itertools.cycle(api_keys)
 
-# --- 2. Model Fallback Chain ---
-MODELS_TO_TRY = ['gemini-3.8-flash', 'gemini-1.5-flash', 'gemini-1.5-pro']
+# --- 2. Reliable Model Fallback Chain ---
+MODELS_TO_TRY = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro']
 
 uploaded_file = st.file_uploader("Upload your PDF file", type=["pdf"])
 
@@ -74,6 +74,7 @@ if uploaded_file is not None:
                 )
                 
                 page_success = False
+                last_error = None
                 
                 # Try each fallback model in order
                 for model_name in MODELS_TO_TRY:
@@ -83,7 +84,7 @@ if uploaded_file is not None:
                     current_key = next(key_pool)
                     client = genai.Client(api_key=current_key)
                     
-                    # Retry loop per model to handle brief traffic/busy spikes gracefully
+                    # Retry loop per model to handle brief traffic spikes gracefully
                     for attempt in range(2):
                         try:
                             response = client.models.generate_content(
@@ -103,14 +104,12 @@ if uploaded_file is not None:
                             page_success = True
                             break
                         except Exception as e:
-                            if "503" in str(e) or "ResourceExhausted" in str(e):
-                                time.sleep(1.5)
-                                continue
-                            else:
-                                break
+                            last_error = str(e)
+                            time.sleep(1)
+                            continue
                 
                 if not page_success:
-                    st.warning(f"⚠️ Page {page_idx + 1} could not be processed due to high server traffic.")
+                    st.warning(f"⚠️ Page {page_idx + 1} error: {last_error}")
 
         df_result = pd.DataFrame(extracted_data)
 
