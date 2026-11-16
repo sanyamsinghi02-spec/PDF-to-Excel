@@ -10,7 +10,7 @@ import pypdfium2 as pdfium
 from PIL import Image
 from google import genai
 
-st.title("📄 Universal PDF to Excel Creator (Hybrid AI + Digital OCR)")
+st.title("📄 Universal PDF to Excel Creator")
 st.write("Instant digital extraction + AI Vision for handwritten notes and diagrams!")
 
 # --- 1. Multi-Key Rotation Setup ---
@@ -40,8 +40,8 @@ if uploaded_file is not None:
 
     extracted_data = []
 
-    with st.spinner("Analyzing document... (Checking digital layer first)"):
-        # STEP A: Fast digital text extraction (0 AI credits, milliseconds fast)
+    with st.spinner("Processing document..."):
+        # STEP A: Fast digital text extraction
         has_digital_text = False
         with pdfplumber.open(tmp_path) as pdf:
             for page_idx, page in enumerate(pdf.pages):
@@ -53,17 +53,14 @@ if uploaded_file is not None:
                         extracted_data.append({
                             "Page": page_idx + 1,
                             "Line Number": line_idx + 1,
-                            "Source": "Digital Text",
                             "Extracted Content": line
                         })
 
-        # STEP B: Fallback to AI Vision only if it's a scanned/handwritten document
+        # STEP B: Fallback to AI Vision for scans/handwriting
         if not has_digital_text:
-            st.info("No digital text layer detected. Running optimized AI Vision pipeline for handwriting/scans...")
             pdf_file = pdfium.PdfDocument(tmp_path)
             
             for page_idx, page in enumerate(pdf_file):
-                # Optimize resolution and scale for maximum speed & lower payload size
                 image = page.render(scale=2).to_pil()
                 image.thumbnail((1000, 1000))
                 
@@ -76,7 +73,6 @@ if uploaded_file is not None:
                 page_success = False
                 last_error = None
                 
-                # Try each active fallback model in order
                 for model_name in MODELS_TO_TRY:
                     if page_success:
                         break
@@ -84,7 +80,6 @@ if uploaded_file is not None:
                     current_key = next(key_pool)
                     client = genai.Client(api_key=current_key)
                     
-                    # Retry loop per model to handle brief traffic spikes gracefully
                     for attempt in range(2):
                         try:
                             response = client.models.generate_content(
@@ -98,7 +93,6 @@ if uploaded_file is not None:
                                 extracted_data.append({
                                     "Page": page_idx + 1,
                                     "Line Number": line_idx + 1,
-                                    "Source": f"AI Vision ({model_name})",
                                     "Extracted Content": line
                                 })
                             page_success = True
@@ -109,7 +103,7 @@ if uploaded_file is not None:
                             continue
                 
                 if not page_success:
-                    st.warning(f"⚠️ Page {page_idx + 1} error: {last_error}")
+                    st.warning(f"⚠️ Page {page_idx + 1} processing warning: {last_error}")
 
         df_result = pd.DataFrame(extracted_data)
 
@@ -131,7 +125,7 @@ if uploaded_file is not None:
         st.download_button(
             label="📥 Download Clean Excel File",
             data=output,
-            file_name="universal_extracted.xlsx",
+            file_name="extracted_document.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
     else:
