@@ -28,8 +28,8 @@ if not api_keys:
 
 key_pool = itertools.cycle(api_keys)
 
-# --- 2. Reliable Model Fallback Chain ---
-MODELS_TO_TRY = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro']
+# --- 2. Active Model Fallback Chain ---
+MODELS_TO_TRY = ['gemini-3.8-flash', 'gemini-3.5-flash-lite']
 
 uploaded_file = st.file_uploader("Upload your PDF file", type=["pdf"])
 
@@ -76,7 +76,7 @@ if uploaded_file is not None:
                 page_success = False
                 last_error = None
                 
-                # Try each fallback model in order
+                # Try each active fallback model in order
                 for model_name in MODELS_TO_TRY:
                     if page_success:
                         break
