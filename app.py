@@ -11,7 +11,7 @@ from PIL import Image
 from google import genai
 
 st.title("📄 Universal PDF to Excel Creator (Hybrid AI + Digital OCR)")
-st.write("Instant digital extraction + AI Vision for handwritten notes and diagrams, built for multiple concurrent users!")
+st.write("Instant digital extraction + AI Vision for handwritten notes and diagrams!")
 
 # --- 1. Multi-Key Rotation Setup ---
 api_keys = []
