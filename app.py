@@ -6,9 +6,9 @@ import pandas as pd
 import pdfplumber
 import pypdfium2 as pdfium
 import pytesseract
-from PIL import Image
+from PIL import Image, ImageEnhance, ImageOps
 
-st.title("📄 Universal PDF to Excel Creator")
+st.title("📄 Universal PDF to Excel Creator (Enabled with OCR)")
 st.write("Convert any document into an Excel spreadsheet effortlessly. Supports digital text PDFs, scanned certificates, and handwritten notes!")
 
 uploaded_file = st.file_uploader("Upload your PDF file", type=["pdf"])
@@ -20,7 +20,7 @@ if uploaded_file is not None:
 
     extracted_data = []
 
-    with st.spinner("Processing document using Universal & OCR pipeline..."):
+    with st.spinner("Processing document using Universal & Enhanced OCR pipeline..."):
         # Step 1: Try extracting digital text first (Fast & perfect for clean digital PDFs)
         with pdfplumber.open(tmp_path) as pdf:
             for page_idx, page in enumerate(pdf.pages):
@@ -35,22 +35,29 @@ if uploaded_file is not None:
                             "Extracted Content": line
                         })
 
-        # Step 2: Fallback to OCR if no digital text layer was found (Scans, Certificates, Handwritten Notes)
+        # Step 2: Fallback to OCR with Advanced Handwriting Preprocessing
         if not extracted_data:
-            st.info("No digital text layer detected. Running advanced OCR pipeline for scanned/handwritten content...")
+            st.info("No digital text layer detected. Running optimized handwriting OCR pipeline...")
             
             pdf_file = pdfium.PdfDocument(tmp_path)
             for page_idx, page in enumerate(pdf_file):
-                # Render at high resolution (scale=3) so handwritten loops and fonts stay crisp
-                image = page.render(scale=3).to_pil()
+                # Render at high resolution (scale=4 for maximum clarity on handwritten loops)
+                image = page.render(scale=4).to_pil()
                 
-                # Preprocess: Grayscale and thresholding to filter out notebook lines/background noise
+                # --- Advanced Handwriting Preprocessing ---
+                # 1. Convert to grayscale
                 gray = image.convert('L')
-                threshold = 170
-                processed_image = gray.point(lambda p: 255 if p > threshold else 0)
+                
+                # 2. Boost Contrast to make ink stand out sharply against paper
+                contrast_enhancer = ImageEnhance.Contrast(gray)
+                enhanced_contrast = contrast_enhancer.enhance(2.5)
+                
+                # 3. Sharpen edges so cursive letters don't blur together
+                sharpness_enhancer = ImageEnhance.Sharpness(enhanced_contrast)
+                processed_image = sharpness_enhancer.enhance(2.0)
 
-                # Run OCR with sparse text mode (--psm 11) to handle handwritten notes and flowcharts
-                custom_config = r'--oem 3 --psm 11'
+                # Run OCR with --psm 4 (Assume a single column of text with variable sizes, ideal for notes/bullets)
+                custom_config = r'--oem 3 --psm 4'
                 text = pytesseract.image_to_string(processed_image, config=custom_config)
                 
                 lines = [line.strip() for line in text.split('\n') if line.strip()]
@@ -58,7 +65,7 @@ if uploaded_file is not None:
                     extracted_data.append({
                         "Page": page_idx + 1,
                         "Line Number": line_idx + 1,
-                        "Extraction Mode": "OCR (Scanned/Handwritten)",
+                        "Extraction Mode": "OCR (Handwritten/Scanned)",
                         "Extracted Content": line
                     })
 
