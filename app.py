@@ -19,7 +19,13 @@ if uploaded_file is not None:
 
     with st.spinner("Processing document and correcting rotation..."):
         # Convert PDF pages to images
-        images = convert_from_path(tmp_path)
+        import pypdfium2 as pdfium
+
+pdf_file = pdfium.PdfDocument(tmp_path)
+images = []
+for page in pdf_file:
+    image = page.render(scale=3).to_pil()
+    images.append(image)
         
         extracted_data = []
         for i, image in enumerate(images):
