@@ -17,8 +17,8 @@ if uploaded_file is not None:
         tmp_file.write(uploaded_file.read())
         tmp_path = tmp_file.name
 
-    with st.spinner("Processing document and correcting rotation..."):
-        # Convert PDF pages to images using pypdfium2
+    with st.spinner("Processing document and extracting text..."):
+        # Convert PDF pages to images using pure Python (No poppler-utils needed)
         pdf_file = pdfium.PdfDocument(tmp_path)
         images = []
         for page in pdf_file:
@@ -27,22 +27,19 @@ if uploaded_file is not None:
         
         extracted_data = []
         for i, image in enumerate(images):
-            # Auto-rotate image if Tesseract detects it's sideways (OSD - Orientation and Script Detection)
+            # Auto-rotate image if Tesseract detects orientation
             try:
                 osd = pytesseract.image_to_osd(image)
-                # Parse rotation angle from osd output
                 rotation_angle = int([x.split(':') for x in osd.split('\n') if 'Rotate' in x][0][1])
                 if rotation_angle != 0:
                     image = image.rotate(-rotation_angle, expand=True)
             except Exception:
-                # Fallback: if it's explicitly sideways like your certificate, rotate 90 degrees clockwise
-                # You can change this to image.rotate(270, expand=True) if needed
                 pass
 
-            # Run OCR on the properly oriented image
+            # Run OCR
             text = pytesseract.image_to_string(image)
             
-            # Split text into individual lines to create a clean, readable row-by-row structure
+            # Split text into individual lines
             lines = [line.strip() for line in text.split('\n') if line.strip()]
             for line_idx, line in enumerate(lines):
                 extracted_data.append({
@@ -59,7 +56,6 @@ if uploaded_file is not None:
     if not df_result.empty:
         st.success("Extraction successful!")
         
-        # Preview extracted lines
         st.write("### Preview:")
         st.dataframe(df_result)
 
