@@ -7,8 +7,8 @@ from pdf2image import convert_from_path
 import pytesseract
 from PIL import Image
 
-st.title("📄 Certificate & Document PDF to Excel Converter")
-st.write("Extracts text cleanly from scanned or rotated documents into an Excel spreadsheet.")
+st.title("📄 Advanced PDF to Excel Converter")
+st.write("Supports both digital text PDFs and scanned image-based documents using OCR.")
 
 uploaded_file = st.file_uploader("Upload your PDF file", type=["pdf"])
 
