@@ -10,8 +10,8 @@ import pypdfium2 as pdfium
 from PIL import Image
 from google import genai
 
-st.title("📄 Universal PDF to Excel Creator")
-st.write("Instant digital extraction + AI Vision for handwritten notes and documents!")
+st.title("📄 Universal PDF to Excel Creator & Summarizer")
+st.write("Convert digital text, handwritten notes, and scanned diagrams into Excel and get instant AI summaries!")
 
 # --- 1. Multi-Key Rotation Setup ---
 api_keys = []
@@ -40,14 +40,17 @@ if uploaded_file is not None:
 
     extracted_data = []
 
-    with st.spinner("Processing document..."):
+    with st.spinner("Processing document and generating summary..."):
         # STEP A: Fast digital text extraction
         has_digital_text = False
+        full_text_collected = ""
+        
         with pdfplumber.open(tmp_path) as pdf:
             for page_idx, page in enumerate(pdf.pages):
                 text = page.extract_text()
                 if text and text.strip():
                     has_digital_text = True
+                    full_text_collected += text + "\n"
                     lines = [line.strip() for line in text.split('\n') if line.strip()]
                     for line_idx, line in enumerate(lines):
                         extracted_data.append({
@@ -87,6 +90,7 @@ if uploaded_file is not None:
                                 contents=[image, prompt]
                             )
                             text = response.text
+                            full_text_collected += text + "\n"
                             lines = [line.strip() for line in text.split('\n') if line.strip()]
                             
                             for line_idx, line in enumerate(lines):
@@ -105,15 +109,39 @@ if uploaded_file is not None:
                 if not page_success:
                     st.warning(f"⚠️ Page {page_idx + 1} processing warning: {last_error}")
 
+        # STEP C: Generate AI Summary of the extracted text
+        document_summary = "Could not generate summary."
+        if full_text_collected.strip():
+            summary_client = genai.Client(api_key=next(key_pool))
+            summary_prompt = (
+                "Provide a clear, well-structured executive summary of the following document content. "
+                "Highlight key takeaways, important headings, or concepts in bullet points:\n\n" + full_text_collected[:10000]
+            )
+            for model_name in MODELS_TO_TRY:
+                try:
+                    sum_res = summary_client.models.generate_content(
+                        model=model_name,
+                        contents=[summary_prompt]
+                    )
+                    document_summary = sum_res.text
+                    break
+                except:
+                    continue
+
         df_result = pd.DataFrame(extracted_data)
 
     # Clean up temp file
     os.unlink(tmp_path)
 
     if not df_result.empty:
-        st.success("Extraction successful!")
+        st.success("Extraction & Summary successful!")
         
-        st.write("### Preview:")
+        # Display AI Summary Section
+        st.write("### 🧠 AI Document Summary")
+        st.info(document_summary)
+
+        # Preview extracted lines
+        st.write("### 📊 Extracted Data Preview:")
         st.dataframe(df_result)
 
         # Convert to Excel for download
