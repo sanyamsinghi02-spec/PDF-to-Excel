@@ -1,7 +1,2 @@
 streamlit
-pandas
-openpyxl
-pypdfium2
-pdfplumber
-google-genai
-Pillow
+PyMuPDF
